@@ -1,0 +1,1 @@
+- use hourly data, for not only temperature but also rainfall
