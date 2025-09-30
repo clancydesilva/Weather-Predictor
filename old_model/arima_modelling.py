@@ -5,7 +5,6 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 import matplotlib.pyplot as plt
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
-# --- Load and prepare data ---
 df = pd.read_csv("data/cleaned/daily_data.csv")
 features = ["date", "max_temp", "min_temp"]
 df = df[features]
@@ -17,12 +16,12 @@ df["mean_temp"] = (df["max_temp"] + df["min_temp"]) / 2
 df["date"] = pd.to_datetime(df["date"])
 df.set_index("date", inplace=True)
 
-# --- Keep only last 10 years ---
+# keep only last 10 years 
 start_date = df.index.max() - pd.DateOffset(years=5)
 df = df.asfreq("D")  # explicit daily frequency
 ts = df.loc[start_date:, "mean_temp"]
 
-# --- Stationarity check ---
+# stationarity check
 result = adfuller(ts)
 print("ADF p-value:", result[1])
 if result[1] > 0.05:
@@ -30,35 +29,43 @@ if result[1] > 0.05:
 else:
     print("Series is stationary.")
 
-# --- ACF and PACF plots ---
+# ACF and PACF plots
 fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 plot_acf(ts, lags=100, ax=axes[0])
 plot_pacf(ts, lags=100, ax=axes[1])
 #plt.show()
 
-# --- Train/test split ---
+# train, test split
 train_size = int(len(ts) * 0.8)
 train, test = ts.iloc[:train_size], ts.iloc[train_size:]
 
-# --- Fit daily SARIMA model ---
+# fit model
 # order=(p,d,q), seasonal_order=(P,D,Q,s)
 # s=365 for yearly seasonality
-model = SARIMAX(train,
+daily_model = SARIMAX(train,
                 order=(2,0,2),
                 seasonal_order=(1,1,1,365),
                 enforce_stationarity=False,
                 enforce_invertibility=False)
 
+# daily model takes longer to run, take weekly average instead
+df_weekly = df.resample("W").mean()
+ts = df_weekly["mean_temp"]
+weekly_model = SARIMAX(ts, order=(2,0,2), seasonal_order=(1,1,1,52))
+
+
+
 print("Starting SARIMA fit...")
-model_fit = model.fit(disp=True)
+model_fit = weekly_model.fit(disp=True)
+#model_fit = daily_model.fit(disp=True)
 print("SARIMA fit complete.")
 
 print(model_fit.summary())
 
-# --- Forecast ---
+# forecast
 forecast = model_fit.forecast(steps=len(test))
 
-# --- Plot ---
+# plot
 plt.figure(figsize=(12,6))
 plt.plot(train.index, train, label="Train", color="#203147")
 plt.plot(test.index, test, label="Test", color="#01ef63")
