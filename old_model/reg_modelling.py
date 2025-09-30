@@ -9,6 +9,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.ensemble import RandomForestRegressor
+import matplotlib.pyplot as plt
 
 df = pd.read_csv("data/cleaned/daily_data.csv")
 df["date"] = pd.to_datetime(df["date"])
@@ -57,4 +58,15 @@ print("R2 :", r2_score(y_test, predictions))
 # print("\nRandom Forest Regression:")
 # print("MSE:", mean_squared_error(y_test, y_pred_rf))
 # print("R2 :", r2_score(y_test, y_pred_rf))
+
+# plot to compare the 
+plt.figure(figsize=(12,6))
+plt.plot(y_train.index, y_train, label="Train", color="#203147")
+plt.plot(y_test.index, y_test, label="Test", color="#01ef63")
+plt.plot(y_test.index, predictions, label="Ridge Forecast", color="orange")
+plt.title("Temperature Forecast (Daily Ridge)")
+plt.xlabel("Date")
+plt.ylabel("Temperature")
+plt.legend()
+#plt.show()
 
