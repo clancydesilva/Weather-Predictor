@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment config
+.env
+
+# Generated data artifacts (produced by the pipeline — not source code)
+data/processed/
+data/cleaned/
+
+# Model artifacts (large binary files — produced by train.py)
+models/*.joblib
+models/*.pkl
+!models/.gitkeep
+
+# Audit/results outputs (reproducible from source)
+results/plots/
+results/metrics.json
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
