@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cork Weather — Theme Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Theme switcher bar */
+    .theme-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0; right: 0;
+      z-index: 200;
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .theme-btn {
+      padding: 0.45rem 0.9rem;
+      border-radius: 100px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.7);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .theme-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+    .theme-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg, #000);
+    }
+    .app { padding-bottom: 5rem !important; }
+    .demo-label {
+      position: fixed;
+      top: 1rem; right: 1rem;
+      z-index: 200;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.5);
+      font-size: 0.68rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: 100px;
+      font-family: inherit;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="theme-heavy-rain">
+
+  <div class="weather-bg" id="weatherBg">
+    <div class="rain-container" id="rainContainer"></div>
+    <div class="bg-gradient"></div>
+  </div>
+
+  <div class="demo-label">DEMO MODE — fake data</div>
+
+  <div class="app" id="app">
+    <header class="header">
+      <div class="header-left">
+        <h1 class="city-name">Cork City</h1>
+        <p class="station-name">Cork Airport</p>
+      </div>
+      <div class="header-right">
+        <div class="live-clock" id="liveClock">21:58</div>
+        <div class="last-updated" id="lastUpdated"><span class="live-dot"></span>Demo mode</div>
+      </div>
+    </header>
+
+    <section class="hero-card card">
+      <div class="condition-icon" id="conditionIcon">🌧️</div>
+      <div class="hero-temp-row">
+        <span class="temp-main" id="tempNow">--</span>
+        <span class="temp-unit">°C</span>
+      </div>
+      <div class="feels-like">feels like <span id="feelsLike">--</span>°C</div>
+      <div class="condition-badge" id="conditionBadge">--</div>
+      <div class="hero-meta">
+        <div class="hero-meta-item"><span class="meta-icon">↑</span><span id="tempMax">--</span>°</div>
+        <div class="hero-meta-divider"></div>
+        <div class="hero-meta-item"><span class="meta-icon">↓</span><span id="tempMin">--</span>°</div>
+        <div class="hero-meta-divider"></div>
+        <div class="hero-meta-item"><span class="meta-icon">💧</span><span id="totalRain">--</span>mm</div>
+        <div class="hero-meta-divider"></div>
+        <div class="hero-meta-item"><span class="meta-icon">🕐</span><span id="rainHours">--</span>h rain</div>
+      </div>
+    </section>
+
+    <section class="outfit-card card">
+      <div class="card-header">
+        <h2 class="card-title">What to Wear</h2>
+        <span class="outfit-confidence" id="outfitConfidence">--</span>
+      </div>
+      <div class="outfit-items" id="outfitItems"></div>
+      <div class="outfit-alerts" id="outfitAlerts"></div>
+    </section>
+
+    <div class="stats-grid">
+      <div class="stat-card card">
+        <div class="stat-label">Peak Rain</div>
+        <div class="stat-value" id="statRain">--%</div>
+        <div class="stat-bar-track"><div class="stat-bar" id="rainBar" style="width:0%"></div></div>
+      </div>
+      <div class="stat-card card">
+        <div class="stat-label">Comfort</div>
+        <div class="stat-value comfort-value" id="statComfort">--<span class="stat-unit">/10</span></div>
+        <div class="comfort-dots" id="comfortDots"></div>
+      </div>
+      <div class="stat-card card">
+        <div class="stat-label">Wind</div>
+        <div class="stat-value" id="statWind">--</div>
+        <div class="stat-sub" id="statWindDir">--</div>
+      </div>
+      <div class="stat-card card">
+        <div class="stat-label">Humidity</div>
+        <div class="stat-value" id="statHumidity">--%</div>
+        <div class="stat-bar-track"><div class="stat-bar humidity-bar" id="humidBar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <section class="events-card card">
+      <div class="card-header">
+        <h2 class="card-title">Rain Events</h2>
+        <span class="events-count" id="eventsCount"></span>
+      </div>
+      <div class="events-list" id="eventsList"></div>
+    </section>
+
+    <section class="hourly-section card">
+      <h2 class="card-title">Next 24 Hours</h2>
+      <div class="hourly-strip" id="hourlyStrip"></div>
+    </section>
+
+    <section class="notify-card card">
+      <div class="notify-content">
+        <div class="notify-text">
+          <div class="notify-title">Morning Briefing</div>
+          <div class="notify-desc">Daily forecast &amp; outfit at 7am</div>
+        </div>
+        <button class="notify-btn">Enable</button>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>Cork Airport (3904) · Met Éireann data · Statistical model ≈3–6h horizon</p>
+      <p class="footer-sub">Theme demo — not live data</p>
+    </footer>
+  </div>
+
+  <!-- Theme switcher bar -->
+  <div class="theme-bar">
+    <button class="theme-btn active" onclick="setTheme('heavy-rain')"  id="btn-heavy-rain">🌧️ Heavy Rain</button>
+    <button class="theme-btn"        onclick="setTheme('light-rain')"  id="btn-light-rain">🌦️ Light Rain</button>
+    <button class="theme-btn"        onclick="setTheme('overcast')"    id="btn-overcast">☁️ Overcast</button>
+    <button class="theme-btn"        onclick="setTheme('mild')"        id="btn-mild">🌤️ Mild</button>
+    <button class="theme-btn"        onclick="setTheme('pleasant')"    id="btn-pleasant">☀️ Pleasant</button>
+  </div>
+
+  <script>
+  'use strict';
+
+  // ── Fake data per theme ────────────────────────────────────────────────────
+
+  const THEMES = {
+    'heavy-rain': {
+      icon: '🌧️', badge: 'Heavy Rain Expected',
+      temp: 10.2, feels: 7.4, max: 11.8, min: 9.1, rain: 14.2, rainHours: 19,
+      peakRain: 0.96, comfort: 3.1, wind: 44, windDir: 'SW', humidity: 98,
+      outfit: ['🧥 Heavy coat', '🌧️ Waterproof jacket', '🧤 Gloves', '🧣 Scarf'],
+      confidence: '96% rain chance',
+      alerts: ['💧 Heavy persistent rain all day — full waterproofs essential.'],
+      events: [
+        { type: 'offset', time: '08:00', msg: 'Brief dry window around 08:00', conf: 72 },
+        { type: 'onset',  time: '09:00', msg: 'Rain resumes around 09:00',     conf: 88 },
+        { type: 'onset',  time: '14:00', msg: 'Heavy band expected at 14:00',  conf: 91 },
+      ],
+      hourly: [
+        [12,0.95,1],[13,0.98,1],[11,0.90,1],[10,0.85,1],[9,0.82,1],[10,0.78,1],
+        [10,0.95,1],[10,0.98,1],[11,0.90,1],[11,0.85,1],[11,0.88,1],[12,0.92,1],
+        [12,0.95,1],[12,0.96,1],[11,0.93,1],[11,0.89,1],[10,0.86,1],[10,0.84,1],
+        [10,0.81,1],[10,0.78,1],[10,0.72,1],[10,0.69,1],[10,0.65,1],[10,0.60,1],
+      ],
+      drops: 90,
+    },
+
+    'light-rain': {
+      icon: '🌦️', badge: 'Light Rain Likely',
+      temp: 13.4, feels: 12.1, max: 15.2, min: 11.0, rain: 2.4, rainHours: 6,
+      peakRain: 0.58, comfort: 5.7, wind: 18, windDir: 'W', humidity: 82,
+      outfit: ['🧥 Light jacket', '☂️ Umbrella'],
+      confidence: '58% rain chance',
+      alerts: ['☂️ Intermittent showers — keep an umbrella handy.'],
+      events: [
+        { type: 'onset',  time: '11:00', msg: 'Shower likely around 11:00', conf: 61 },
+        { type: 'offset', time: '13:00', msg: 'Clearing around 13:00',      conf: 74 },
+        { type: 'onset',  time: '18:00', msg: 'Evening shower around 18:00',conf: 55 },
+      ],
+      hourly: [
+        [14,0.12,0],[14,0.14,0],[13,0.18,0],[13,0.22,0],[13,0.28,0],[13,0.35,0],
+        [14,0.42,0],[14,0.50,1],[14,0.58,1],[14,0.55,1],[14,0.48,1],[14,0.38,0],
+        [15,0.25,0],[15,0.20,0],[15,0.18,0],[15,0.22,0],[15,0.30,0],[15,0.45,1],
+        [14,0.55,1],[14,0.48,1],[14,0.38,0],[13,0.28,0],[13,0.20,0],[13,0.15,0],
+      ],
+      drops: 40,
+    },
+
+    'overcast': {
+      icon: '☁️', badge: 'Cloudy & Overcast',
+      temp: 11.8, feels: 11.2, max: 13.1, min: 10.4, rain: 0.4, rainHours: 2,
+      peakRain: 0.22, comfort: 4.9, wind: 22, windDir: 'SW', humidity: 88,
+      outfit: ['🧥 Jacket', '🧣 Jumper'],
+      confidence: 'Low rain chance',
+      alerts: [],
+      events: [
+        { type: 'onset', time: '15:00', msg: 'Isolated shower possible 15:00', conf: 42 },
+      ],
+      hourly: [
+        [12,0.08,0],[12,0.10,0],[12,0.11,0],[12,0.13,0],[12,0.14,0],[12,0.16,0],
+        [13,0.18,0],[13,0.19,0],[13,0.20,0],[13,0.21,0],[13,0.22,0],[13,0.20,0],
+        [13,0.18,0],[13,0.16,0],[13,0.22,0],[13,0.19,0],[12,0.15,0],[12,0.12,0],
+        [12,0.10,0],[12,0.09,0],[12,0.08,0],[11,0.07,0],[11,0.07,0],[11,0.06,0],
+      ],
+      drops: 0,
+    },
+
+    'mild': {
+      icon: '🌤️', badge: 'Mild Conditions',
+      temp: 16.5, feels: 16.2, max: 18.1, min: 13.2, rain: 0.0, rainHours: 0,
+      peakRain: 0.09, comfort: 7.8, wind: 12, windDir: 'SW', humidity: 65,
+      outfit: ['🧥 Light jacket'],
+      confidence: 'Dry day',
+      alerts: [],
+      events: [],
+      hourly: [
+        [14,0.05,0],[14,0.04,0],[13,0.04,0],[13,0.04,0],[13,0.05,0],[14,0.05,0],
+        [15,0.06,0],[16,0.06,0],[17,0.07,0],[18,0.08,0],[18,0.09,0],[18,0.08,0],
+        [18,0.08,0],[17,0.07,0],[17,0.07,0],[17,0.07,0],[16,0.06,0],[16,0.06,0],
+        [15,0.05,0],[15,0.05,0],[15,0.05,0],[14,0.05,0],[14,0.04,0],[13,0.04,0],
+      ],
+      drops: 0,
+    },
+
+    'pleasant': {
+      icon: '☀️', badge: 'Clear & Comfortable',
+      temp: 22.3, feels: 23.1, max: 24.8, min: 16.4, rain: 0.0, rainHours: 0,
+      peakRain: 0.03, comfort: 9.3, wind: 8, windDir: 'SE', humidity: 46,
+      outfit: ['👕 T-shirt', '🕶️ Sunglasses'],
+      confidence: 'Beautiful day',
+      alerts: [],
+      events: [],
+      hourly: [
+        [17,0.02,0],[17,0.02,0],[16,0.02,0],[16,0.02,0],[17,0.02,0],[18,0.02,0],
+        [20,0.02,0],[22,0.03,0],[23,0.03,0],[24,0.03,0],[25,0.03,0],[25,0.03,0],
+        [24,0.03,0],[24,0.02,0],[23,0.02,0],[23,0.02,0],[22,0.02,0],[21,0.02,0],
+        [20,0.02,0],[19,0.02,0],[19,0.02,0],[18,0.02,0],[18,0.02,0],[17,0.02,0],
+      ],
+      drops: 0,
+    },
+  };
+
+  // ── Render helpers (mirrors app.js) ───────────────────────────────────────
+
+  function el(id) { return document.getElementById(id); }
+
+  function renderTheme(data) {
+    el('conditionIcon').textContent    = data.icon;
+    el('conditionBadge').textContent   = data.badge;
+    el('tempNow').textContent          = data.temp.toFixed(1);
+    el('feelsLike').textContent        = data.feels.toFixed(1);
+    el('tempMax').textContent          = data.max.toFixed(1);
+    el('tempMin').textContent          = data.min.toFixed(1);
+    el('totalRain').textContent        = data.rain.toFixed(1);
+    el('rainHours').textContent        = data.rainHours;
+    el('outfitConfidence').textContent = data.confidence;
+    el('statRain').textContent         = `${Math.round(data.peakRain * 100)}%`;
+    el('rainBar').style.width          = `${Math.round(data.peakRain * 100)}%`;
+    el('statComfort').innerHTML        = `${data.comfort.toFixed(1)}<span class="stat-unit">/10</span>`;
+    el('statWind').innerHTML           = `${data.wind}<span class="stat-unit"> km/h</span>`;
+    el('statWindDir').textContent      = data.windDir;
+    el('statHumidity').textContent     = `${data.humidity}%`;
+    el('humidBar').style.width         = `${data.humidity}%`;
+
+    // Comfort dots
+    const dots = el('comfortDots');
+    dots.innerHTML = '';
+    for (let i = 0; i < 10; i++) {
+      const d = document.createElement('div');
+      d.className = 'comfort-dot' + (i < Math.round(data.comfort) ? ' filled' : '');
+      dots.appendChild(d);
+    }
+
+    // Outfit chips
+    const outfitEl = el('outfitItems');
+    outfitEl.innerHTML = '';
+    data.outfit.forEach((item, i) => {
+      const c = document.createElement('span');
+      c.className = 'outfit-chip';
+      c.style.animationDelay = `${i * 0.05}s`;
+      c.textContent = item;
+      outfitEl.appendChild(c);
+    });
+
+    // Alerts
+    const alertsEl = el('outfitAlerts');
+    alertsEl.innerHTML = '';
+    data.alerts.forEach(msg => {
+      const d = document.createElement('div');
+      d.className = 'outfit-alert';
+      d.innerHTML = `<span class="outfit-alert-icon">${msg.substring(0,2)}</span><span>${msg.substring(2).trim()}</span>`;
+      alertsEl.appendChild(d);
+    });
+
+    // Events
+    const evList = el('eventsList');
+    evList.innerHTML = '';
+    el('eventsCount').textContent = data.events.length > 0 ? `${data.events.length} event${data.events.length !== 1 ? 's' : ''}` : '';
+    if (data.events.length === 0) {
+      evList.innerHTML = '<p class="no-events">No significant events predicted.</p>';
+    } else {
+      data.events.forEach((e, i) => {
+        const item = document.createElement('div');
+        item.className = `event-item ${e.type}`;
+        item.style.animationDelay = `${i * 0.06}s`;
+        item.innerHTML = `
+          <div class="event-time">${e.time}</div>
+          <div class="event-body">
+            <div class="event-type">${e.type === 'onset' ? 'Rain starts' : 'Rain stops'}</div>
+            <div class="event-message">${e.msg}</div>
+          </div>
+          <div class="event-confidence">${e.conf}%</div>
+        `;
+        evList.appendChild(item);
+      });
+    }
+
+    // Hourly
+    const strip = el('hourlyStrip');
+    strip.innerHTML = '';
+    const hours = ['01','02','03','04','05','06','07','08','09','10','11','12',
+                   '13','14','15','16','17','18','19','20','21','22','23','00'];
+    data.hourly.forEach(([temp, prob, flag], i) => {
+      const pct  = Math.round(prob * 100);
+      const icon = flag ? '🌧️' : (prob > 0.35 ? '🌦️' : '⛅');
+      const card = document.createElement('div');
+      card.className = `hourly-card${flag ? ' rain-hour' : ''}`;
+      card.innerHTML = `
+        <div class="hourly-time">${hours[i]}:00</div>
+        <div class="hourly-icon">${icon}</div>
+        <div class="hourly-temp">${temp}°</div>
+        <div class="hourly-prob">${pct}%</div>
+        <div class="hourly-bar-track">
+          <div class="hourly-bar" style="width:${pct}%"></div>
+        </div>
+      `;
+      strip.appendChild(card);
+    });
+  }
+
+  function createRaindrops(count) {
+    const container = el('rainContainer');
+    container.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const drop = document.createElement('div');
+      drop.className = 'raindrop';
+      drop.style.left               = `${Math.random() * 110 - 5}vw`;
+      drop.style.animationDuration  = `${0.4 + Math.random() * 0.9}s`;
+      drop.style.animationDelay     = `${Math.random() * 2.5}s`;
+      drop.style.height             = `${14 + Math.random() * 16}px`;
+      drop.style.opacity            = 0.25 + Math.random() * 0.55;
+      container.appendChild(drop);
+    }
+  }
+
+  let currentTheme = null;
+
+  function setTheme(theme) {
+    if (theme === currentTheme) return;
+    currentTheme = theme;
+
+    // Update body class (triggers all CSS variable changes)
+    document.body.className = `theme-${theme}`;
+
+    // Update active button
+    document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
+    el(`btn-${theme}`).classList.add('active');
+
+    // Render fake data
+    renderTheme(THEMES[theme]);
+    createRaindrops(THEMES[theme].drops);
+  }
+
+  // Clock
+  setInterval(() => {
+    const now = new Date();
+    el('liveClock').textContent =
+      now.toLocaleTimeString('en-IE', { hour:'2-digit', minute:'2-digit', hour12:false });
+  }, 1000);
+
+  // Boot with heavy-rain
+  setTheme('heavy-rain');
+  </script>
+</body>
+</html>
