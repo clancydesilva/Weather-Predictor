@@ -5,7 +5,9 @@ FastAPI application entry point for the Cork City Weather API.
 
 Startup (lifespan handler):
   1. Load ensemble, onset, and offset models from models/ into app.state
-  2. Load the feature parquet into app.state (in-memory for fast inference)
+  2. Load the feature parquet tail (last 200 rows) into app.state for inference
+     — LOOKBACK_HOURS(72) + FORECAST_HOURS(24) = 96 rows max needed;
+       200 gives a safe buffer and stays constant regardless of data growth.
   3. Record last data timestamp and feature count for /health
 
 Shutdown:
@@ -48,9 +50,10 @@ from src.config import (
     API_PORT,
     FEATURE_COLUMNS,
     FEATURES_PARQUET,
+    FORECAST_HOURS,
+    LOOKBACK_HOURS,
     MODELS_DIR,
     STATION_NAME,
-    TEST_START_DATE,
 )
 
 
@@ -95,15 +98,18 @@ async def lifespan(app: FastAPI):
         )
     df = pd.read_parquet(FEATURES_PARQUET)
 
-    # Keep only the test-set window for inference (last ~4 years, fast to slice)
-    # In production (Phase 5) this will be the live-updated parquet.
-    app.state.features_df    = df.loc[TEST_START_DATE:]
+    # Cap to the last (LOOKBACK_HOURS + FORECAST_HOURS + buffer) rows only.
+    # Inference never needs more than 96 rows (72h lookback + 24h forecast).
+    # Using a fixed tail means memory is O(1) regardless of how much new data
+    # fetch_latest.py appends over time — prevents the OOM growth bug.
+    _inference_buffer = LOOKBACK_HOURS + FORECAST_HOURS + 104  # = 200 rows
+    app.state.features_df    = df.tail(_inference_buffer)
     app.state.last_data_ts   = df.index.max()
     app.state.feature_count  = len(FEATURE_COLUMNS)
     app.state.model_version  = ensemble_path.stem  # e.g. "ensemble_latest"
 
     elapsed = (time.perf_counter() - t0) * 1000
-    print(f"API ready in {elapsed:.0f}ms — {len(app.state.features_df):,} inference rows loaded.")
+    print(f"API ready in {elapsed:.0f}ms — {len(app.state.features_df):,} inference rows loaded (capped).")
 
     yield
 
