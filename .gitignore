@@ -42,3 +42,10 @@ results/metrics.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs (generated at runtime — not source code)
+logs/
+*.log
+
+# Dev notes / planning artifacts
+implementation_plan.md
