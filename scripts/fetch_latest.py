@@ -142,6 +142,28 @@ def fetch_and_append(dry_run: bool = False) -> int:
     return n_new
 
 
+def _trigger_api_reload(api_url: str = "http://localhost:8000") -> bool:
+    """
+    Call POST /admin/reload on the running API so fresh parquet rows are
+    served immediately. Returns True on success, False if API is not running.
+    """
+    try:
+        r = requests.post(f"{api_url}/admin/reload", timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            print(f"  API reloaded   : {data['rows']} rows, last obs {data['last_ts']} ({data['elapsed_ms']}ms)")
+            return True
+        else:
+            print(f"  API reload failed: HTTP {r.status_code}")
+            return False
+    except requests.exceptions.ConnectionError:
+        print("  API not running — skipping hot-reload (predictions update on next restart).")
+        return False
+    except Exception as e:
+        print(f"  API reload error: {e}")
+        return False
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Fetch latest Met Éireann observations and append to local CSV."
@@ -151,12 +173,25 @@ def main() -> None:
         action="store_true",
         help="Check for new rows but do not write to disk.",
     )
+    parser.add_argument(
+        "--api-url",
+        default="http://localhost:8000",
+        help="Base URL of the running API for hot-reload (default: http://localhost:8000).",
+    )
+    parser.add_argument(
+        "--no-reload",
+        action="store_true",
+        help="Skip the /admin/reload call after fetching.",
+    )
     args = parser.parse_args()
 
     try:
         n = fetch_and_append(dry_run=args.dry_run)
         if n < 0:
             sys.exit(1)
+        if n > 0 and not args.dry_run and not args.no_reload:
+            print("\nTriggering API hot-reload...")
+            _trigger_api_reload(args.api_url)
     except FileNotFoundError as e:
         print(f"ERROR: {e}")
         sys.exit(1)
