@@ -75,20 +75,28 @@ async def lifespan(app: FastAPI):
     onset_path    = MODELS_DIR / "onset_classifier_latest.joblib"
     offset_path   = MODELS_DIR / "offset_classifier_latest.joblib"
 
-    for path in (ensemble_path, onset_path, offset_path):
-        if not path.exists():
-            raise FileNotFoundError(
-                f"Model not found: {path}\n"
-                f"Run 'python -m src.train' and 'python scripts/train_phase3.py' first."
-            )
-
-    app.state.ensemble   = joblib.load(ensemble_path)
-    app.state.onset_clf  = joblib.load(onset_path)
-    app.state.offset_clf = joblib.load(offset_path)
-
+    # Ensemble is required — crash early if missing
+    if not ensemble_path.exists():
+        raise FileNotFoundError(
+            f"Ensemble model not found: {ensemble_path}\n"
+            f"Run 'python -m src.train' first."
+        )
+    app.state.ensemble = joblib.load(ensemble_path)
     print(f"  ensemble   : {ensemble_path.name}")
-    print(f"  onset      : {onset_path.name}")
-    print(f"  offset     : {offset_path.name}")
+
+    # Onset/offset are optional — disable /events gracefully if absent
+    app.state.onset_clf  = None
+    app.state.offset_clf = None
+    app.state.events_available = False
+    try:
+        app.state.onset_clf  = joblib.load(onset_path)
+        app.state.offset_clf = joblib.load(offset_path)
+        app.state.events_available = True
+        print(f"  onset      : {onset_path.name}")
+        print(f"  offset     : {offset_path.name}")
+    except FileNotFoundError:
+        print("  onset/offset: NOT FOUND — /forecast/events disabled.")
+        print("  Run 'python scripts/train_phase3.py' to enable it.")
 
     print("Loading feature parquet...")
     if not FEATURES_PARQUET.exists():
@@ -181,6 +189,47 @@ async def health() -> HealthResponse:
         inference_ms=inference_ms,
         feature_count=app.state.feature_count,
     )
+
+
+# ── Admin ────────────────────────────────────────────────────────────────────
+
+@app.post(
+    "/admin/reload",
+    tags=["System"],
+    summary="Hot-reload feature parquet",
+    description=(
+        "Reloads the feature parquet from disk into memory without restarting "
+        "the server. Call this after fetch_latest.py appends new observations "
+        "so the API serves fresh predictions immediately."
+    ),
+)
+async def reload_features() -> dict:
+    """
+    Hot-reload the features parquet from disk.
+
+    Called automatically by the fetch scheduler after each successful fetch.
+    Safe to call at any time — reads are atomic at the DataFrame level.
+    """
+    if not FEATURES_PARQUET.exists():
+        return {"status": "error", "detail": "Feature parquet not found on disk."}
+
+    t0 = time.perf_counter()
+    df = pd.read_parquet(FEATURES_PARQUET)
+    _inference_buffer = LOOKBACK_HOURS + FORECAST_HOURS + 104
+    app.state.features_df  = df.tail(_inference_buffer)
+    app.state.last_data_ts = df.index.max()
+    elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+
+    last_ts = app.state.last_data_ts
+    last_ts_str = last_ts.isoformat() if hasattr(last_ts, "isoformat") else str(last_ts)
+    print(f"[reload] Features refreshed in {elapsed_ms}ms — last obs: {last_ts_str}")
+
+    return {
+        "status":   "ok",
+        "rows":     len(app.state.features_df),
+        "last_ts":  last_ts_str,
+        "elapsed_ms": elapsed_ms,
+    }
 
 
 # ── Routers ───────────────────────────────────────────────────────────────────
