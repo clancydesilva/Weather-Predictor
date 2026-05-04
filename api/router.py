@@ -55,10 +55,11 @@ def _run_forecast(state: dict, n_hours: int = 24) -> dict:
     """Run the full model stack on the last n_hours of the feature DataFrame."""
     df = state["features_df"]
     window = get_forecast_window(df, n_hours=n_hours)
+    # onset_clf / offset_clf may be None if phase-3 models are not trained yet
     return generate_forecast(
         window,
         state["ensemble"],
-        state["onset_clf"],
+        state["onset_clf"],   # None -> generate_forecast returns [] for events
         state["offset_clf"],
     )
 
@@ -238,6 +239,14 @@ async def forecast_commute(
     ),
 )
 async def forecast_events(request: Request) -> list[schemas.OnsetEvent]:
+    if not request.app.state.events_available:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Onset/offset classifiers not loaded. "
+                "Run 'python scripts/train_phase3.py' then restart the API."
+            ),
+        )
     state    = _get_state(request)
     forecast = _run_forecast(state, n_hours=24)
 

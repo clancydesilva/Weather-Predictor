@@ -90,9 +90,9 @@ def generate_forecast(
     rain_flags = ens_out["rain_flag"]           # shape (n_hours,)
     rain_mm    = ens_out["rainfall_mm"]         # shape (n_hours,)
 
-    # ── Stage 2: Onset / offset events ───────────────────────────────────────
-    onset_events  = onset_clf.predict_events(forecast_window)
-    offset_events = offset_clf.predict_events(forecast_window)
+    # Stage 2: Onset / offset events (None when phase-3 models not loaded)
+    onset_events  = onset_clf.predict_events(forecast_window)  if onset_clf  else []
+    offset_events = offset_clf.predict_events(forecast_window) if offset_clf else []
 
     # ── Stage 3: Build per-hour output ───────────────────────────────────────
     hours = []

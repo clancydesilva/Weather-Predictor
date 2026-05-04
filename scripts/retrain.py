@@ -36,6 +36,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.config import FEATURES_PARQUET, METRICS_JSON, MODELS_DIR, RESULTS_DIR
+from src.logger import get_logger
+
+log = get_logger(__name__, log_file="pipeline.log")
 
 
 def _section(title: str) -> None:
@@ -67,7 +70,7 @@ def main() -> None:
     args = parser.parse_args()
 
     t_start = time.perf_counter()
-    print(f"Retrain started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log.info("Retrain started")
 
     # ── 1. Fetch new data ─────────────────────────────────────────────────────
     new_rows = 0
@@ -76,14 +79,14 @@ def main() -> None:
         from scripts.fetch_latest import fetch_and_append
         new_rows = fetch_and_append()
         if new_rows < 0:
-            print("Fetch failed — aborting retrain.")
+            log.error("Fetch failed — aborting retrain.")
             sys.exit(1)
         if new_rows == 0 and not args.force:
-            print("\nNo new data — already up to date. Use --force to retrain anyway.")
+            log.info("No new data — already up to date. Use --force to retrain anyway.")
             sys.exit(0)
-        print(f"\n  New rows fetched: {new_rows}")
+        log.info(f"New rows fetched: {new_rows}")
     else:
-        print("  [--skip-fetch] Using existing raw CSV.")
+        log.info("[--skip-fetch] Using existing raw CSV.")
         new_rows = -1  # sentinel: "unknown, but proceeding"
 
     # ── 2. Clean data ─────────────────────────────────────────────────────────
@@ -112,18 +115,15 @@ def main() -> None:
         new_metrics.get("ensemble", {}).get("val_f1")
         or new_metrics.get("xgboost",  {}).get("val_f1", 0.0)
     )
-    print(f"\n  New model val F1: {new_val_f1:.4f}")
+    log.info(f"New model val F1: {new_val_f1:.4f}")
 
     # ── 6. Promotion gate ─────────────────────────────────────────────────────
     _section("6. PROMOTION GATE")
     if new_val_f1 >= f1_floor:
-        print(f"  ✓ PASSED  ({new_val_f1:.4f} >= {f1_floor:.4f})")
-        print("  New models promoted to production.")
+        log.info(f"PASSED ({new_val_f1:.4f} >= {f1_floor:.4f}) — promoting to production.")
         promoted = True
     else:
-        print(f"  ✗ FAILED  ({new_val_f1:.4f} < {f1_floor:.4f})")
-        print("  New models DISCARDED — production models unchanged.")
-        print("  Investigate training data quality before next run.")
+        log.warning(f"FAILED ({new_val_f1:.4f} < {f1_floor:.4f}) — discarding new models.")
         promoted = False
 
     if not promoted:
@@ -159,11 +159,11 @@ def main() -> None:
     # ── 8. Summary ────────────────────────────────────────────────────────────
     elapsed = time.perf_counter() - t_start
     _section("RETRAIN COMPLETE")
-    print(f"  New rows fetched   : {new_rows if new_rows >= 0 else 'N/A (skip-fetch)'}")
-    print(f"  New ensemble val F1: {new_val_f1:.4f}")
-    print(f"  Onset  test F1     : {oo_metrics.get('onset_test_f1', 0):.4f}")
-    print(f"  Offset test F1     : {oo_metrics.get('offset_test_f1', 0):.4f}")
-    print(f"  Total time         : {elapsed/60:.1f} minutes")
+    log.info(f"New rows fetched   : {new_rows if new_rows >= 0 else 'N/A (skip-fetch)'}")
+    log.info(f"New ensemble val F1: {new_val_f1:.4f}")
+    log.info(f"Onset  test F1     : {oo_metrics.get('onset_test_f1', 0):.4f}")
+    log.info(f"Offset test F1     : {oo_metrics.get('offset_test_f1', 0):.4f}")
+    log.info(f"Total time         : {elapsed/60:.1f} minutes")
 
 
 def _rollback_latest_models() -> None:
