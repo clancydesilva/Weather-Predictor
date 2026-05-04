@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Cork City Weather Predictor — real-time hourly forecast, clothing advice, and rain alerts powered by 60 years of Met Éireann data.">
+  <meta name="theme-color" content="#0a1628">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Cork Weather</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-mild">
+
+  <!-- Animated weather background -->
+  <div class="weather-bg" id="weatherBg">
+    <div class="rain-container" id="rainContainer"></div>
+    <div class="bg-gradient"></div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-ring"></div>
+    <p class="loading-text">Loading Cork forecast…</p>
+  </div>
+
+  <!-- Error state -->
+  <div class="error-overlay hidden" id="errorOverlay">
+    <div class="error-card">
+      <div class="error-icon">⚡</div>
+      <h2>API Offline</h2>
+      <p>Start the server first:</p>
+      <code>make serve</code>
+      <button class="retry-btn" id="retryBtn" onclick="init()">Retry</button>
+    </div>
+  </div>
+
+  <!-- Main app -->
+  <div class="app" id="app">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <h1 class="city-name">Cork City</h1>
+        <p class="station-name" id="stationName">Cork Airport</p>
+      </div>
+      <div class="header-right">
+        <div class="live-clock" id="liveClock">--:--</div>
+        <div class="last-updated" id="lastUpdated">--</div>
+      </div>
+    </header>
+
+    <!-- Hero — current conditions -->
+    <section class="hero-card card" id="heroCard">
+      <div class="condition-icon" id="conditionIcon">🌤️</div>
+      <div class="hero-temp-row">
+        <span class="temp-main" id="tempNow">--</span>
+        <span class="temp-unit">°C</span>
+      </div>
+      <div class="feels-like">feels like <span id="feelsLike">--</span>°C</div>
+      <div class="condition-badge" id="conditionBadge">Loading…</div>
+      <div class="hero-meta">
+        <div class="hero-meta-item">
+          <span class="meta-icon">↑</span>
+          <span id="tempMax">--</span>°
+        </div>
+        <div class="hero-meta-divider"></div>
+        <div class="hero-meta-item">
+          <span class="meta-icon">↓</span>
+          <span id="tempMin">--</span>°
+        </div>
+        <div class="hero-meta-divider"></div>
+        <div class="hero-meta-item">
+          <span class="meta-icon">💧</span>
+          <span id="totalRain">--</span>mm
+        </div>
+        <div class="hero-meta-divider"></div>
+        <div class="hero-meta-item">
+          <span class="meta-icon">🕐</span>
+          <span id="rainHours">--</span>h rain
+        </div>
+      </div>
+    </section>
+
+    <!-- Outfit recommendation -->
+    <section class="outfit-card card" id="outfitCard">
+      <div class="card-header">
+        <h2 class="card-title">What to Wear</h2>
+        <span class="outfit-confidence" id="outfitConfidence">--</span>
+      </div>
+      <div class="outfit-items" id="outfitItems">
+        <span class="outfit-chip loading-chip">Loading…</span>
+      </div>
+      <div class="outfit-alerts" id="outfitAlerts"></div>
+    </section>
+
+    <!-- Stats grid -->
+    <div class="stats-grid">
+      <div class="stat-card card">
+        <div class="stat-label">Peak Rain</div>
+        <div class="stat-value" id="statRain">--%</div>
+        <div class="stat-bar-track">
+          <div class="stat-bar" id="rainBar" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="stat-card card">
+        <div class="stat-label">Comfort</div>
+        <div class="stat-value comfort-value" id="statComfort">--<span class="stat-unit">/10</span></div>
+        <div class="comfort-dots" id="comfortDots"></div>
+      </div>
+      <div class="stat-card card">
+        <div class="stat-label">Wind</div>
+        <div class="stat-value" id="statWind">--</div>
+        <div class="stat-sub" id="statWindDir">--</div>
+      </div>
+      <div class="stat-card card">
+        <div class="stat-label">Humidity</div>
+        <div class="stat-value" id="statHumidity">--%</div>
+        <div class="stat-bar-track">
+          <div class="stat-bar humidity-bar" id="humidBar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rain events timeline -->
+    <section class="events-card card" id="eventsSection">
+      <div class="card-header">
+        <h2 class="card-title">Rain Events</h2>
+        <span class="events-count" id="eventsCount">--</span>
+      </div>
+      <div class="events-list" id="eventsList">
+        <p class="no-events">No significant events predicted.</p>
+      </div>
+    </section>
+
+    <!-- Hourly strip -->
+    <section class="hourly-section card">
+      <h2 class="card-title">Next 24 Hours</h2>
+      <div class="hourly-strip" id="hourlyStrip">
+        <!-- Populated by JS -->
+      </div>
+    </section>
+
+    <!-- Notification toggle -->
+    <section class="notify-card card" id="notifyCard">
+      <div class="notify-content">
+        <div class="notify-text">
+          <div class="notify-title">Morning Briefing</div>
+          <div class="notify-desc">Daily forecast &amp; outfit at 7am</div>
+        </div>
+        <button class="notify-btn" id="notifyBtn" onclick="toggleNotifications()">
+          Enable
+        </button>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Cork Airport (3904) · Met Éireann data · Statistical model ≈3–6h horizon</p>
+      <p class="footer-sub">Auto-refreshes every 5 minutes</p>
+    </footer>
+
+  </div><!-- /.app -->
+
+  <script src="app.js"></script>
+</body>
+</html>
