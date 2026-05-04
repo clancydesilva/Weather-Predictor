@@ -173,8 +173,12 @@ def _early_stop_kwargs(
 ) -> dict:
     """
     Build fit() kwargs for early stopping if the estimator supports it.
-    XGBoost and LightGBM both support eval_set for early stopping.
-    Sklearn estimators without this param get an empty dict.
+
+    XGBoost:   passes eval_set only (early_stopping_rounds is set in constructor).
+    LightGBM:  passes eval_set + callbacks=[lgb.early_stopping(50), lgb.log_evaluation(50)].
+               LightGBM's sklearn API requires the callback approach — passing
+               eval_set alone without a callback is silently ignored.
+    Other:     returns empty dict (no-op).
     """
     if X_val is None or y_val is None:
         return {}
@@ -193,4 +197,21 @@ def _early_stop_kwargs(
         X_v = X_val[FEATURE_COLUMNS]
         y_v = y_val[target_col]
 
-    return {"eval_set": [(X_v, y_v)]}
+    kwargs = {"eval_set": [(X_v, y_v)]}
+
+    # LightGBM requires early stopping to be passed as a callback in fit().
+    # Without this, eval_set is accepted but early stopping never fires,
+    # causing LightGBM to blindly train all n_estimators rounds.
+    try:
+        import lightgbm as lgb
+        if isinstance(estimator, (lgb.LGBMClassifier, lgb.LGBMRegressor)):
+            rounds = getattr(estimator, "_early_stopping_rounds", 50)
+            kwargs["callbacks"] = [
+                lgb.early_stopping(stopping_rounds=rounds, verbose=False),
+                lgb.log_evaluation(period=100),
+            ]
+    except ImportError:
+        pass  # LightGBM not installed — skip callback injection
+
+    return kwargs
+

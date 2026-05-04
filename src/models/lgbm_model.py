@@ -76,6 +76,8 @@ def build_lgbm_pipeline(
         verbose=-1,
         random_state=random_state,
     )
+    # Store early_stopping_rounds so pipeline._early_stop_kwargs can read it
+    classifier._early_stopping_rounds = early_stopping_rounds
 
     regressor = lgb.LGBMRegressor(
         n_estimators=n_estimators,
@@ -88,6 +90,7 @@ def build_lgbm_pipeline(
         verbose=-1,
         random_state=random_state,
     )
+    regressor._early_stopping_rounds = early_stopping_rounds
 
     return TwoStagePipeline(
         classifier=classifier,
