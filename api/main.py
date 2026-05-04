@@ -42,6 +42,7 @@ import joblib
 import pandas as pd
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from api import router as forecast_router
 from api.schemas import HealthResponse
@@ -153,8 +154,16 @@ app = FastAPI(
 
 @app.get("/", include_in_schema=False)
 async def root():
-    """Redirect root to interactive API docs."""
-    return RedirectResponse(url="/docs")
+    """Redirect root to the weather UI."""
+    return RedirectResponse(url="/ui")
+
+
+# ── Static UI ─────────────────────────────────────────────────────────────────
+# Served at http://localhost:8000/ui — the browser-based weather dashboard.
+# Must be mounted AFTER routes so /ui doesn't shadow API endpoints.
+_UI_DIR = __import__("pathlib").Path(__file__).resolve().parent.parent / "ui"
+if _UI_DIR.exists():
+    app.mount("/ui", StaticFiles(directory=str(_UI_DIR), html=True), name="ui")
 
 
 @app.get(
